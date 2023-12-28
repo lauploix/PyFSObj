@@ -1,1 +1,6 @@
-fs==2.4.11
+fs==2.4.16
+Pillow== 10.1.0
+pillow-heif==0.14.0
+appdirs==1.4.4
+setuptools==69.0.2
+six==1.16.0
