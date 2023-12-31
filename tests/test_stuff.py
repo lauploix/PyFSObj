@@ -32,7 +32,9 @@ def test_exif():
     myFs = fs.open_fs(os.path.join(os.path.split(__file__)[0], "data"))
     memFs = fs.open_fs("mem://")
     fs.copy.copy_dir(src_fs=myFs, dst_fs=memFs, src_path=".", dst_path=".")
-    files = memFs.walk.files(filter=["*.jpg", "*.jpeg", "*.png", "*.heic"])
+    files = memFs.walk.files(
+        filter=["*.jpg", "*.jpeg", "*.png", "*.heic", "*.bmp"]
+    )
     for file in files:
         with memFs.open(file, "rb") as imfile:  # open first
             with Image.open(imfile) as opened:  # file like object
