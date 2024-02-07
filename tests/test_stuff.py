@@ -57,16 +57,24 @@ def test_copy_between_real_and_mem_filesystems():
     # use the local data directory and copy its content in a mem filesystem
     myFs = fs.open_fs(os.path.join(os.path.split(__file__)[0], "data"))
     memFs = fs.open_fs("mem://")
+
+    # Recursively copy the content of the local data directory
+    # in the mem filesystem
     fs.copy.copy_dir(src_fs=myFs, dst_fs=memFs, src_path=".", dst_path=".")
+
+    # Check consistency
     assert set(myFs.listdir(".")) == set(memFs.listdir("."))
     assert set(myFs.listdir("dir_one")) == set(memFs.listdir("dir_one"))
 
-    # Check that the content of the file is the same
+    # Check that the content of one file is the same in both filesystems
     with myFs.open("dir_one/DSC_9229.jpeg", "rb") as f1:
         with memFs.open("dir_one/DSC_9229.jpeg", "rb") as f2:
             read1 = f1.read()
+            details = myFs.getinfo(
+                "dir_one/DSC_9229.jpeg", namespaces=["details"]
+            )
             assert read1 == f2.read()
-            assert len(read1) == 
+            assert len(read1) == details.size
 
 
 def test_exif():
