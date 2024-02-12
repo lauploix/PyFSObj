@@ -2,11 +2,11 @@ import os
 
 import fs
 
-from pyfsobj import File
+from pyfsobj import FileWrapper
 
 
 def test_import():
-    assert type(File) is type
+    assert type(FileWrapper) is type
 
 
 def test_move_between_mem_dirs():
@@ -23,7 +23,7 @@ def test_move_between_mem_dirs():
     assert srcdir.listdir(".") == ["hello.txt"]
     assert destdir.listdir(".") == []
 
-    f = File(srcdir, "hello.txt")
+    f = FileWrapper(srcdir, "hello.txt")
     f2 = f.move_to(destdir)
 
     assert f2 is f
@@ -47,7 +47,7 @@ def test_move_between_mem_filesystems():
     assert srcdir.listdir(".") == ["hello.txt"]
     assert destdir.listdir(".") == []
 
-    f = File(srcdir, "hello.txt")
+    f = FileWrapper(srcdir, "hello.txt")
     f2 = f.move_to(destdir)
 
     assert f2 is f
@@ -56,6 +56,138 @@ def test_move_between_mem_filesystems():
     assert f.exists() is True
     assert f.filesystem == destdir
     assert f.filename == "hello.txt"
+
+
+def test_trash_two_files_will_create_a_trash_file_with_two_files():
+    myFs = fs.open_fs("mem://")
+    srcdir = myFs.makedir("mydir1")
+
+    srcdir.create("hello.txt")
+    with srcdir.open("hello.txt", "w") as hello:
+        hello.write("Hello World!")
+
+    srcdir.create("hello2.txt")
+    with srcdir.open("hello2.txt", "w") as hello:
+        hello.write("Hello World!")
+
+    assert srcdir.listdir(".") == ["hello.txt", "hello2.txt"]
+
+    f = FileWrapper(srcdir, "hello.txt")
+    f2 = FileWrapper(srcdir, "hello2.txt")
+    f.trash()
+
+    trashdir = srcdir.opendir(".trash")
+    assert trashdir.listdir(".") == ["hello.txt"]
+
+    f2.trash()
+
+    assert srcdir.listdir(".") == [".trash"]
+    assert trashdir.listdir(".") == ["hello.txt", "hello2.txt"]
+
+
+def test_trash_same_file_twice_will_create_a_trash_with_2_files():
+    myFs = fs.open_fs("mem://")
+    srcdir = myFs.makedir("mydir1")
+
+    srcdir.create("hello.txt")
+    with srcdir.open("hello.txt", "w") as hello:
+        hello.write("Hello World!")
+
+    assert srcdir.listdir(".") == ["hello.txt"]
+
+    f = FileWrapper(srcdir, "hello.txt")
+    f.trash()
+
+    # Now do the seocond one
+
+    srcdir.create("hello.txt")
+    with srcdir.open("hello.txt", "w") as hello2:
+        hello2.write("Hello World!")
+
+    assert srcdir.listdir(".") == [".trash", "hello.txt"]
+
+    f2 = FileWrapper(srcdir, "hello.txt")
+    f2.trash()
+
+    trashdir = srcdir.opendir(".trash")
+
+    assert srcdir.listdir(".") == [".trash"]
+    assert trashdir.listdir(".") == ["hello.txt", "Copy of hello.txt"]
+
+
+def test_trash_diff_file_same_name_will_create_a_trash_file_with_two_file():
+    myFs = fs.open_fs("mem://")
+    srcdir = myFs.makedir("mydir1")
+
+    srcdir.create("hello.txt")
+    with srcdir.open("hello.txt", "w") as hello:
+        hello.write("Hello World!")
+
+    assert srcdir.listdir(".") == ["hello.txt"]
+
+    f = FileWrapper(srcdir, "hello.txt")
+    f.trash()
+
+    # Now do the seocond one
+
+    srcdir.create("hello.txt")
+    with srcdir.open("hello.txt", "w") as hello2:
+        hello2.write("Hello World! Again.")
+
+    assert srcdir.listdir(".") == [".trash", "hello.txt"]
+
+    f2 = FileWrapper(srcdir, "hello.txt")
+    f2.trash()
+
+    trashdir = srcdir.opendir(".trash")
+
+    assert srcdir.listdir(".") == [".trash"]
+    assert trashdir.listdir(".") == ["hello.txt", "Copy of hello.txt"]
+
+
+def test_can_trash_file_for_real():
+    myFs = fs.open_fs("mem://")
+    srcdir = myFs.makedir("mydir1")
+
+    srcdir.create("hello.txt")
+    with srcdir.open("hello.txt", "w") as hello:
+        hello.write("Hello World!")
+
+    assert srcdir.listdir(".") == ["hello.txt"]
+
+    f = FileWrapper(srcdir, "hello.txt")
+    f.trash(for_real=True)
+
+    assert srcdir.listdir(".") == []
+
+
+def test_can_trash_file_in_trash_dir_fromn_diff_dirs():
+    myFs = fs.open_fs("mem://")
+    srcdir1 = myFs.makedir("mydir1")
+    srcdir2 = myFs.makedir("mydir2")
+    trash = myFs.makedir(".trash")
+
+    srcdir1.create("hello.txt")
+    with srcdir1.open("hello.txt", "w") as hello:
+        hello.write("Hello World!")
+
+    f1 = FileWrapper(srcdir1, "hello.txt")
+    f2 = f1.copy_to(srcdir2, as_name="hello2.txt")
+
+    assert srcdir1.listdir(".") == ["hello.txt"]
+    assert srcdir2.listdir(".") == ["hello2.txt"]
+
+    assert f1.filesystem == srcdir1
+    f1.trash(trash_filesystem=trash)
+    assert f1.filesystem == trash
+
+    assert f2.filesystem == srcdir2
+    f2.trash(trash_filesystem=trash)
+    assert f2.filesystem == trash
+
+    assert srcdir1.listdir(".") == []
+    assert srcdir2.listdir(".") == []
+    assert trash.listdir(".") == ["hello.txt", "hello2.txt"]
 
 
 def test_copy_between_mem_filesystems():
@@ -71,7 +203,7 @@ def test_copy_between_mem_filesystems():
     assert srcdir.listdir(".") == ["hello.txt"]
     assert destdir.listdir(".") == []
 
-    f = File(srcdir, "hello.txt")
+    f = FileWrapper(srcdir, "hello.txt")
     f2 = f.copy_to(destdir)
 
     assert f2 is not f
@@ -91,7 +223,7 @@ def test_copy_between_real_and_mem_filesystems():
     myfirstFs = fs.open_fs(os.path.join(os.path.split(__file__)[0], "data"))
     mysecondFs = fs.open_fs("mem://")
     srcdir = myfirstFs.opendir("dir_one")
-    destdir = mysecondFs.makedir("mydir2")
+    destdir = mysecondFs.makedir("my_mem_dir")
 
     assert set(srcdir.listdir(".")) == set(
         [
@@ -106,7 +238,7 @@ def test_copy_between_real_and_mem_filesystems():
     )
     assert destdir.listdir(".") == []
 
-    f = File(srcdir, "NGC2841_Astrobin.jpg")
+    f = FileWrapper(srcdir, "NGC2841_Astrobin.jpg")
     f2 = f.copy_to(destdir)
 
     assert f2 is not f
@@ -128,7 +260,7 @@ def test_walk():
     for step in myfirstFs.walk():
         for f in step.files:
             filesystem = myfirstFs.opendir(step.path)
-            file = File(filesystem, f.name)
+            file = FileWrapper(filesystem, f.name)
 
             d_md5[file.md5] = d_md5.get(file.md5, []) + [file]
 
