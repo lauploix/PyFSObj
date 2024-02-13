@@ -1,6 +1,13 @@
+import datetime
 from functools import lru_cache
 
 from fs.move import copy_file, move_file
+from PIL import Image
+from pillow_heif import register_heif_opener
+
+register_heif_opener()
+
+# from PIL.ExifTags import TAGS
 
 
 class FileWrapper:
@@ -30,21 +37,31 @@ class FileWrapper:
 
         return wrapper
 
+    def __repr__(self):
+        return f"FileWrapper({self.filesystem}, {self.filename})"
+
     # return the same file, after it's moved
-    @check_validity
-    def move_to(self, dest_fs, as_name=None):
+    def move_to(self, dest_fs, *, as_name=None, new_name_if_needed=False):
+        as_name = as_name or self.filename
+        if new_name_if_needed:
+            if dest_fs.exists(as_name):
+                return self.move_to(
+                    dest_fs,
+                    as_name=f"Copy of {as_name}",
+                    new_name_if_needed=True,
+                )
+
         move_file(
             src_fs=self.filesystem,
             src_path=self.filename,
             dst_fs=dest_fs,
-            dst_path=as_name or self.filename,
+            dst_path=as_name,
         )
         self.filesystem = dest_fs
-        self.filename = as_name or self.filename
+        self.filename = as_name
         return self
 
-    @check_validity
-    def trash(self, for_real=False, trash_filesystem=None):
+    def trash(self, *, trash_filesystem=None, for_real=False, as_name=None):
         if for_real:
             self.filesystem.remove(self.filename)
             self.filesystem = None
@@ -55,18 +72,9 @@ class FileWrapper:
                 ".trash", recreate=True
             )
             # Here, check if the file is already in the trash first
-            if not trash.exists(self.filename):
-                return self.move_to(trash)
-            else:
-                # if there's another file in the trash
-                # with the same name
-                return self.move_to(
-                    trash,
-                    as_name="Copy of " + self.filename,
-                )
+            return self.move_to(trash, new_name_if_needed=True)
 
     # returns a new object with the copy of the file
-    @check_validity
     def copy_to(self, dest_fs, as_name=None):
         copy_file(
             src_fs=self.filesystem,
@@ -82,17 +90,44 @@ class FileWrapper:
 
     @property
     @lru_cache(maxsize=None)
-    @check_validity
     def md5(self):
         return self.filesystem.hash(self.filename, "md5")
 
     @property
-    @check_validity
     def size(self):
         return self.filesystem.getinfo(
             self.filename, namespaces=["details"]
         ).size
 
-    @check_validity
     def is_same(self, other):
         return self.size == other.size and self.md5 == other.md5
+
+    def is_image(self):
+        return self.filename.lower().endswith(
+            (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".heic", ".nef")
+        )
+
+    @property
+    @lru_cache(maxsize=None)
+    def exif(self):
+        if self.is_image():
+            with self.filesystem.open(self.filename, "rb") as imfile:
+                try:
+                    with Image.open(imfile) as opened:
+                        return opened.getexif()
+                except Image.UnidentifiedImageError:
+                    return None
+        return None
+
+    @property
+    def date(self):
+        if self.exif:
+            exif_d = (
+                self.exif.get(36867)
+                or self.exif.get(36868)
+                or self.exif.get(306)
+            )
+            return exif_d and datetime.datetime.strptime(
+                exif_d, "%Y:%m:%d %H:%M:%S"
+            )
+        return None

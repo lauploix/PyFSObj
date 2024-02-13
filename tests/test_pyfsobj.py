@@ -234,6 +234,7 @@ def test_copy_between_real_and_mem_filesystems():
             "LPL_2009.JPG",
             "LPL_2009.JPG",
             "STScI-01G8GZQ3ZFJRD8YF8YZWMAXCE3.png",
+            "DSC_00332005-07-16.NEF",
         ]
     )
     assert destdir.listdir(".") == []
@@ -270,3 +271,34 @@ def test_walk():
     assert (
         len(set(item.md5 for item in duplicates[0])) == 1
     )  # One hash for all three files
+
+
+def test_can_read_exif():
+    myfirstFs = fs.open_fs(os.path.join(os.path.split(__file__)[0], "data"))
+    srcdir = myfirstFs.opendir("dir_one")
+
+    f = FileWrapper(srcdir, "DSC_00332005-07-16.NEF")
+    assert f.is_image() is True
+    assert f.exif is not None
+    """
+    assert f.exif["Model"] == "NIKON D70"
+    assert f.exif["ExposureTime"] == "1/60"
+    assert f.exif["FNumber"] == "5.6"
+    assert f.exif["ISOSpeedRatings"] == 200
+    assert f.exif["DateTimeOriginal"] == "2005:07:16 11:26:30"
+    assert f.exif["FocalLength"] == "70.0 mm"
+    assert f.exif["LensModel"] == "18.0-70.0 mm f/3.5-4.5"
+    assert f.exif["LensID"] == "AF-S DX Zoom-Nikkor 18-70mm f/3.5-4.5G IF-ED"
+    assert f.exif["LensSpec"] == "18.0-70.0 mm f/3.5-4.5"
+    assert f.exif["LensMake"] == "NIKON CORPORATION"
+    assert f.exif["LensSerialNumber"] == "200211"
+    assert f.exif["LensFirmwareVersion"] == "1.01"
+    assert f.exif["LensType"] == "G VR"
+    assert f.exif["LensInfo"] == "18-70mm f/3.5-4.5"
+    assert f.exif["LensModel"] == "18.0-70.0 mm f/3.5-4.5"
+    assert f.exif["LensSerialNumber"] == "200211"
+    assert f.exif["LensFirmwareVersion"] == "1.01"
+    assert f.exif["LensType"] == "G VR"
+    assert f.exif["LensInfo"] == "18-70mm f/3.5-4.5"
+    assert f.exif["LensModel"] == "18.0-70.0 mm f/3"
+    """
