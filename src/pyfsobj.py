@@ -1,4 +1,5 @@
 import datetime
+import os
 from functools import lru_cache
 
 from fs.move import copy_file, move_file
@@ -12,6 +13,9 @@ register_heif_opener()
 
 class FileWrapper:
     def __init__(self, filesystem, filename, check=True):
+        if os.path.split(filename)[0]:
+            raise ValueError("Filename should not contain a path")
+
         # @todo Check if filesystem is a filesystem
         self.filesystem = filesystem
         # @todo: Here, make sure this filename does not contain any path
@@ -26,6 +30,10 @@ class FileWrapper:
         self.filename = filename
         if check and not self.exists():
             raise FileNotFoundError(f"File {filename} does not exist")
+
+    @property
+    def fullpath(self):
+        return os.path.join(self.filesystem.getsyspath(self.filename))
 
     @staticmethod
     def check_validity(callable):
@@ -61,7 +69,7 @@ class FileWrapper:
         self.filename = as_name
         return self
 
-    def trash(self, *, trash_filesystem=None, for_real=False, as_name=None):
+    def trash(self, *, trash_filesystem=None, for_real=False):
         if for_real:
             self.filesystem.remove(self.filename)
             self.filesystem = None
@@ -100,7 +108,11 @@ class FileWrapper:
         ).size
 
     def is_same(self, other):
-        return self.size == other.size and self.md5 == other.md5
+        return (
+            self.size == other.size
+            and self.exif == other.exif  # If someome changed some data
+            and self.md5 == other.md5
+        )
 
     def is_image(self):
         return self.filename.lower().endswith(
@@ -108,7 +120,6 @@ class FileWrapper:
         )
 
     @property
-    @lru_cache(maxsize=None)
     def exif(self):
         if self.is_image():
             with self.filesystem.open(self.filename, "rb") as imfile:
@@ -127,7 +138,17 @@ class FileWrapper:
                 or self.exif.get(36868)
                 or self.exif.get(306)
             )
-            return exif_d and datetime.datetime.strptime(
-                exif_d, "%Y:%m:%d %H:%M:%S"
-            )
+            try:
+                return exif_d and datetime.datetime.strptime(
+                    exif_d, "%Y:%m:%d %H:%M:%S"
+                )
+            except ValueError:
+                pass
+            try:
+                return exif_d and datetime.datetime.strptime(
+                    exif_d[:10], "%Y:%m:%d"
+                )
+            except ValueError:
+                pass
+
         return None

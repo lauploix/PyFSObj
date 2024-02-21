@@ -5,9 +5,9 @@ import fs
 from pyfsobj import FileWrapper
 
 if __name__ == "__main__":
-    srcfs = fs.open_fs("/Volumes/archives")
+    srcfs = fs.open_fs("/Volumes/archives/Pictures")
     destfs = fs.open_fs("/Volumes/archives/target")
-    trashfs = srcfs.opendir("#recycle")
+    trashfs = fs.open_fs("/Volumes/archives/trash")
 
     for step in srcfs.walk(
         search="depth",
@@ -16,6 +16,8 @@ if __name__ == "__main__":
             "System Volume Information",
             "lost+found",
             "old backup",
+            "trash",
+            "target",
             "Archives",
         ],
     ):
@@ -50,16 +52,19 @@ if __name__ == "__main__":
 
                     if target.exists(new_name):
                         target_file = FileWrapper(target, new_name)
-                        if target_file.md5 == file.md5:
-                            file.trash(trash_filesystem=trashfs)
+                        if target_file.is_same(file):
+                            r = file.trash(trash_filesystem=trashfs)
                         else:
-                            file.move_to(
+                            r = file.move_to(
                                 target,
                                 as_name="Copy of " + new_name,
                                 new_name_if_needed=True,
                             )
                     else:
-                        file.move_to(target, as_name=new_name)
+                        r = file.move_to(target, as_name=new_name)
+
+                    print(r)
+                    print()
 
                     # md5 = file.md5
 
