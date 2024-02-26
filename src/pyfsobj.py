@@ -1,5 +1,6 @@
 import datetime
 import os
+import subprocess
 from functools import lru_cache
 
 from fs.move import copy_file, move_file
@@ -118,6 +119,44 @@ class FileWrapper:
         return self.filename.lower().endswith(
             (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".heic", ".nef")
         )
+
+    def is_video(self):
+        return self.filename.lower().endswith(
+            (
+                ".mp4",
+                ".mov",
+                ".avi",
+                ".mkv",
+                ".webm",
+                ".wmv",
+                ".mpeg",
+                ".mpg",
+                "m2ts",
+            )
+        )
+
+    def to_mp4(self, dest_fs, as_name=None):
+        if not self.is_video():
+            raise ValueError("File is not a movie")
+        as_name = as_name or self.filename
+        if not as_name.lower().endswith(".mp4"):
+            as_name += ".mp4"
+        if dest_fs.exists(as_name):
+            return self.to_mp4(dest_fs, as_name=f"Copy of {as_name}")
+        res = subprocess.run(
+            [
+                "ffmpeg",
+                "-i",
+                self.fullpath,
+                "-crf",
+                "18",
+                dest_fs.getsyspath(as_name),
+            ]
+        )
+        if res.returncode != 0:
+            raise ValueError("Could not convert file")
+
+        return FileWrapper(dest_fs, as_name)
 
     @property
     def exif(self):

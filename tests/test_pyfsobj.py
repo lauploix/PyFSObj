@@ -302,3 +302,19 @@ def test_can_read_exif():
     assert f.exif["LensInfo"] == "18-70mm f/3.5-4.5"
     assert f.exif["LensModel"] == "18.0-70.0 mm f/3"
     """
+
+
+def test_can_convert_to_mp4():
+    # First move the mov file to a temp dir in memory
+    # Then convert it to mp4
+    # Then check the file is there
+    # Then check the file is an mp4
+
+    myfirstFs = fs.open_fs(os.path.join(os.path.split(__file__)[0], "data"))
+    srcdir = myfirstFs.opendir("films")
+    mov_file = FileWrapper(srcdir, "clip-2009-04-12 02;49;22.mov")
+    assert mov_file.is_video() is True
+    mp4_file = mov_file.to_mp4(srcdir)
+    assert mp4_file.is_video() is True
+    assert mp4_file.filename.endswith(".mp4")
+    mp4_file.trash(for_real=True)

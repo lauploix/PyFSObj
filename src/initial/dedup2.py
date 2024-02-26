@@ -27,7 +27,7 @@ if __name__ == "__main__":
     with main_fs.open("all_md5.log", "r") as md5s:
         print("...reading md5s...")
         lines = md5s.readlines()
-        lines = [l for l in lines if "@eaDir" not in l]
+        lines = [lin for lin in lines if "@eaDir" not in lin]
         print("...Done")
         for line in lines[:-1]:
             md5 = line[:32]
