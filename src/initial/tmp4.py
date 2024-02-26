@@ -17,8 +17,6 @@ if __name__ == "__main__":
             exclude_dirs=[
                 "#recycle",
                 "@eaDir",
-                "2013",
-                "2011-03-12 Chants Dagis Albane",
             ],
             filter=["*.mov", "*.wmv", "*.m2ts", "*.avi"],
         ):
@@ -33,7 +31,14 @@ if __name__ == "__main__":
                     print("**************************")
                     print(wrapper.fullpath)
                     print("**************************")
-                    if wrapper.fullpath[-4:] in (".mov", ".wmv", "m2ts", "avi"):
+                    if wrapper.fullpath.endswith(
+                        (
+                            ".mov",
+                            ".wmv",
+                            ".m2ts",
+                            ".avi",
+                        )
+                    ):
                         print(
                             "Copyping" + wrapper.fullpath + " to " + tmpdirname
                         )
@@ -54,7 +59,7 @@ if __name__ == "__main__":
                         print(
                             "Moving original (in tempfs) file to " + target_dir
                         )
-                        copied.move_to(target_fs)
+                        copied.move_to(target_fs, new_name_if_needed=True)
 
                         print("Deleteing original file from " + step.path)
                         wrapper.trash(for_real=True)
